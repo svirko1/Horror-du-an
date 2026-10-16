@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ukleti Dućan - Horor Igra</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; user-select: none; }
+        body { width: 100vw; height: 100vh; overflow: hidden; background: #050505; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; }
+        
+        #game-wrapper {
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            max-height: 800px;
+            position: relative;
+            background: #000;
+            border: 2px solid #222;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9);
+            overflow: hidden;
+        }
+
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 8px; height: 8px; background: rgba(255,255,255,0.7);
+            border-radius: 50%; transform: translate(-50%, -50%);
+            pointer-events: none; z-index: 10;
+        }
+
+        #ui {
+            position: absolute; top: 15px; left: 15px; right: 15px;
+            color: #fff; font-size: 14px; background: rgba(0,0,0,0.85);
+            padding: 10px 14px; border-radius: 6px; pointer-events: none;
+            border: 1px solid #333; z-index: 10; display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Početni Meni */
+        #menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #2a0808 0%, #000 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #fff; z-index: 50; text-align: center; padding: 25px;
+        }
+        #menu-overlay h1 { font-size: 32px; color: #e74c3c; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 15px #ff0000; margin-bottom: 6px; }
+        .creator-tag { font-size: 13px; color: #f1c40f; font-weight: bold; letter-spacing: 1px; margin-bottom: 25px; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); }
+        
+        .menu-btn {
+            width: 80%; max-width: 240px; padding: 14px 0; margin: 8px 0;
+            background: #e74c3c; color: #fff; border: none; font-size: 18px; font-weight: bold;
+            border-radius: 25px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(231, 76, 60, 0.5); transition: all 0.2s;
+        }
+        .menu-btn.secondary { background: #222; border: 1px solid #444; color: #ddd; font-size: 14px; box-shadow: none; }
+        .menu-btn:active { transform: scale(0.95); }
+
+        /* Upute Modal */
+        #instructions-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); display: none; flex-direction: column;
+            justify-content: center; align-items: center; color: #fff; z-index: 60; padding: 30px; text-align: center;
+        }
+        #instructions-modal h2 { color: #f1c40f; margin-bottom: 15px; }
+        #instructions-modal p { font-size: 14px; color: #ccc; line-height: 1.6; margin-bottom: 20px; }
+
+        /* Kontrole na ekranu */
+        #controls-layer {
+            position: absolute; bottom: 15px; left: 0; width: 100%;
+            height: 160px; display: flex; justify-content: space-between;
+            align-items: center; padding: 0 20px; z-index: 15; pointer-events: none;
+        }
+        
+        .dpad-container {
+            width: 130px; height: 130px; position: relative; pointer-events: auto;
+            background: rgba(255,255,255,0.05); border-radius: 50%; border: 1px solid rgba(255,255,255,0.15);
+        }
+        .dpad-btn {
+            position: absolute; width: 42px; height: 42px;
+            background: rgba(255,255,255,0.25); border-radius: 8px;
+            display: flex; justify-content: center; align-items: center;
+            color: #fff; font-weight: bold; font-size: 18px; border: 1px solid rgba(255,255,255,0.3);
+        }
+        .dpad-btn:active { background: rgba(231, 76, 60, 0.8); }
+        #btn-w { top: 4px; left: 44px; }
+        #btn-s { bottom: 4px; left: 44px; }
+        #btn-a { top: 44px; left: 4px; }
+        #btn-d { top: 44px; right: 4px; }
+
+        .look-zone {
+            width: 140px; height: 130px; background: rgba(255,255,255,0.05);
+            border-radius: 15px; border: 1px dashed rgba(255,255,255,0.2);
+            display: flex; justify-content: center; align-items: center;
+            color: #888; font-size: 11px; text-align: center; pointer-events: auto; padding: 10px;
+        }
+
+        /* Jumpscare Efekt */
+        #jumpscare-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #ff0000; display: none; justify-content: center; align-items: center;
+            z-index: 100; pointer-events: none;
+        }
+        #jumpscare-text { font-size: 60px; font-weight: 900; color: #000; animation: shake 0.1s infinite; }
+
+        @keyframes shake {
+            0% { transform: translate(2px, 2px); }
+            50% { transform: translate(-3px, -2px); }
+            100% { transform: translate(1px, 2px); }
+        }
+
+        .screen-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; justify-content: center;
+            align-items: center; color: #fff; z-index: 70; text-align: center; padding: 20px;
+        }
+        #game-over { background: rgba(80,0,0,0.95); }
+        #win-screen { background: rgba(0,80,0,0.95); }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="crosshair"></div>
+        
+        <div id="ui">
+            <span><b>KLJUČEVI:</b></span>
+            <span id="keysCount" style="color:#f1c40f; font-weight:bold; font-size:18px;">0 / 3</span>
+        </div>
+
+        <div id="jumpscare-overlay">
+            <div id="jumpscare-text">☠️ BAA!</div>
+        </div>
+
+        <!-- Početni Meni -->
+        <div id="menu-overlay">
+            <h1>UKLETI DUĆAN</h1>
+            <div class="creator-tag">Frane Luka filmovi is made this game</div>
+            
+            <button class="menu-btn" id="playBtn">IGRAJ (PLAY)</button>
+            <button class="menu-btn secondary" id="diffBtn">TEŽINA: NORMALNO</button>
+            <button class="menu-btn secondary" id="infoBtn">UPUTE ZA IGRU</button>
+        </div>
+
+        <!-- Upute -->
+        <div id="instructions-modal">
+            <h2>KAKO IGRATI</h2>
+            <p>1. Pronađi 3 zlatna ključa skrivena po policama.<br><br>
+               2. Koristi strelice na ekranu ili tipke (W, A, S, D) za kretanje.<br><br>
+               3. Povlači prst po desnoj strani ekrana za gledanje uokolo.<br><br>
+               4. Izbjegavaj čudovište i pazi na Jumpscare strahove!</p>
+            <button class="menu-btn secondary" id="closeInfoBtn">ZATVORI</button>
+        </div>
+
+        <!-- Kraj Igre -->
+        <div id="game-over" class="screen-modal">
+            <h1 style="font-size:36px; color:#ff3333;">UHVAĆEN SI!</h1>
+            <p style="margin-top:10px;">Čudovište te iznenadilo u mraku...</p>
+            <button class="menu-btn" onclick="location.reload()" style="margin-top:20px;">PONOVNO</button>
+        </div>
+
+        <div id="win-screen" class="screen-modal">
+            <h1 style="font-size:36px; color:#2ecc71;">POBJEGAO SI!</h1>
+            <p style="margin-top:10px;">Pronašao si sve ključeve i preživio!</p>
+            <button class="menu-btn" onclick="location.reload()" style="margin-top:20px;">IGRAJ PONOVNO</button>
+        </div>
+
+        <!-- Kontrole -->
+        <div id="controls-layer">
+            <div class="dpad-container">
+                <div class="dpad-btn" id="btn-w">▲</div>
+                <div class="dpad-btn" id="btn-s">▼</div>
+                <div class="dpad-btn" id="btn-a">◄</div>
+                <div class="dpad-btn" id="btn-d">►</div>
+            </div>
+            <div class="look-zone" id="lookZone">
+                POVUCI PRST ZA POGLED 👁️
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const playBtn = document.getElementById('playBtn');
+        const diffBtn = document.getElementById('diffBtn');
+        const infoBtn = document.getElementById('infoBtn');
+        const closeInfoBtn = document.getElementById('closeInfoBtn');
+        const instructionsModal = document.getElementById('instructions-modal');
+        const menuOverlay = document.getElementById('menu-overlay');
+        const jumpscareOverlay = document.getElementById('jumpscare-overlay');
+        const gameOverScreen = document.getElementById('game-over');
+        const winScreen = document.getElementById('win-screen');
+        const wrapper = document.getElementById('game-wrapper');
+
+        let monsterSpeed = 0.035;
+        let diffState = 1; // 0: Lako, 1: Normalno, 2: Teško
+
+        diffBtn.addEventListener('click', () => {
+            diffState = (diffState + 1) % 3;
+            if (diffState === 0) { diffBtn.innerText = 'TEŽINA: LAKO'; monsterSpeed = 0.02; }
+            if (diffState === 1) { diffBtn.innerText = 'TEŽINA: NORMALNO'; monsterSpeed = 0.035; }
+            if (diffState === 2) { diffBtn.innerText = 'TEŽINA: TEŠKO'; monsterSpeed = 0.05; }
+        });
+
+        infoBtn.addEventListener('click', () => instructionsModal.style.display = 'flex');
+        closeInfoBtn.addEventListener('click', () => instructionsModal.style.display = 'none');
+
+        // Three.js Scena
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020202, 0.18);
+
+        const camera = new THREE.PerspectiveCamera(80, wrapper.clientWidth / wrapper.clientHeight, 0.1, 100);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
+        wrapper.appendChild(renderer.domElement);
+
+        // Baterijska Svjetiljka
+        const flashlight = new THREE.SpotLight(0xfff5cc, 3.5, 14, Math.PI / 4, 0.5);
+        camera.add(flashlight);
+        flashlight.position.set(0, 0, 0.1);
+        flashlight.target = camera;
+        scene.add(camera);
+
+        const ambientLight = new THREE.AmbientLight(0x05050a);
+        scene.add(ambientLight);
+
+        // Materijali
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x181818, roughness: 0.9 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
+        const shelfMat = new THREE.MeshStandardMaterial({ color: 0x3a2e2b, roughness: 0.8 });
+        const keyMat = new THREE.MeshBasicMaterial({ color: 0xf1c40f });
+
+        // Pod i Zidovi
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        scene.add(floor);
+
+        function createWall(x, z, ry, w) {
+            const wall = new THREE.Mesh(new THREE.PlaneGeometry(w, 5), wallMat);
+            wall.position.set(x, 2.5, z);
+            wall.rotation.y = ry;
+            scene.add(wall);
+        }
+        createWall(0, -12, 0, 24);
+        createWall(0, 12, Math.PI, 24);
+        createWall(-12, 0, Math.PI/2, 24);
+        createWall(12, 0, -Math.PI/2, 24);
+
+        // Police
+        function createShelf(x, z) {
+            const group = new THREE.Group();
+            for (let i = 0; i < 3; i++) {
+                const shelf = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.15, 1.2), shelfMat);
+                shelf.position.y = 0.4 + i * 1.1;
+                group.add(shelf);
+            }
+            group.position.set(x, 0, z);
+            scene.add(group);
+        }
+        createShelf(-4, -4); createShelf(4, -4);
+        createShelf(-4, 4);  createShelf(4, 4);
+
+        // Ključevi
+        const keys = [];
+        const keyPositions = [
+            { x: -4, y: 1.6, z: -4 },
+            { x: 4, y: 1.6, z: 4 },
+            { x: 0, y: 1.6, z: -9 }
+        ];
+
+        keyPositions.forEach(pos => {
+            const key = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), keyMat);
+            key.position.set(pos.x, pos.y, pos.z);
+            scene.add(key);
+            keys.push(key);
+        });
+
+        // Čudovište
+        const monsterMat = new THREE.MeshStandardMaterial({ color: 0x880000, roughness: 0.3 });
+        const monster = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.2, 1.1), monsterMat);
+        monster.position.set(0, 1.1, -8);
+        scene.add(monster);
+
+        // Kontrole
+        let moveFwd = false, moveBwd = false, moveLft = false, moveRgt = false;
+        let keysCollected = 0;
+        let isGameActive = false;
+
+        camera.position.set(0, 1.5, 9);
+
+        playBtn.addEventListener('click', () => {
+            menuOverlay.style.display = 'none';
+            isGameActive = true;
+            try { document.body.requestPointerLock(); } catch(e){}
+        });
+
+        // Dodirne kontrole za okretanje kamere (Desna zona)
+        const lookZone = document.getElementById('lookZone');
+        let lastTouchX = 0, lastTouchY = 0;
+
+        lookZone.addEventListener('touchstart', (e) => {
+            if(e.touches.length > 0) {
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+            }
+        });
+
+        lookZone.addEventListener('touchmove', (e) => {
+            if (isGameActive && e.touches.length > 0) {
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - lastTouchX;
+                const deltaY = touch.clientY - lastTouchY;
+
+                camera.rotation.y -= deltaX * 0.006;
+                camera.rotation.x -= deltaY * 0.006;
+                camera.rotation.x = Math.max(-Math.PI/2.3, Math.min(Math.PI/2.3, camera.rotation.x));
+
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === document.body && isGameActive) {
+                camera.rotation.y -= e.movementX * 0.003;
+                camera.rotation.x -= e.movementY * 0.003;
+                camera.rotation.x = Math.max(-Math.PI/2.3, Math.min(Math.PI/2.3, camera.rotation.x));
+            }
+        });
+
+        const setupBtn = (id, key) => {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); setMove(key, true); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); setMove(key, false); });
+            btn.addEventListener('mousedown', () => setMove(key, true));
+            btn.addEventListener('mouseup', () => setMove(key, false));
+        };
+
+        function setMove(key, val) {
+            if (key === 'W') moveFwd = val;
+            if (key === 'S') moveBwd = val;
+            if (key === 'A') moveLft = val;
+            if (key === 'D') moveRgt = val;
+        }
+
+        setupBtn('btn-w', 'W'); setupBtn('btn-s', 'S');
+        setupBtn('btn-a', 'A'); setupBtn('btn-d', 'D');
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') moveFwd = true;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') moveBwd = true;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveLft = true;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') moveRgt = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') moveFwd = false;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') moveBwd = false;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveLft = false;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') moveRgt = false;
+        });
+
+        function triggerJumpscare() {
+            jumpscareOverlay.style.display = 'flex';
+            flashlight.intensity = 0;
+            
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            monster.position.copy(camera.position).add(forward.multiplyScalar(1.5));
+
+            setTimeout(() => {
+                jumpscareOverlay.style.display = 'none';
+                flashlight.intensity = 3.5;
+            }, 350);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isGameActive) {
+                const speed = 0.08;
+                if (moveFwd) camera.translateZ(-speed);
+                if (moveBwd) camera.translateZ(speed);
+                if (moveLft) camera.translateX(-speed);
+                if (moveRgt) camera.translateX(speed);
+                camera.position.y = 1.5;
+
+                camera.position.x = Math.max(-10, Math.min(10, camera.position.x));
+                camera.position.z = Math.max(-10, Math.min(10, camera.position.z));
+
+                keys.forEach((key, index) => {
+                    key.rotation.y += 0.04;
+                    if (camera.position.distanceTo(key.position) < 1.3) {
+                        scene.remove(key);
+                        keys.splice(index, 1);
+                        keysCollected++;
+                        document.getElementById('keysCount').innerText = keysCollected + ' / 3';
+
+                        if (keysCollected === 1 || keysCollected === 2) {
+                            triggerJumpscare();
+                        }
+
+                        if (keysCollected === 3) {
+                            isGameActive = false;
+                            winScreen.style.display = 'flex';
+                        }
+                    }
+                });
+
+                monster.lookAt(camera.position.x, monster.position.y, camera.position.z);
+                monster.translateZ(monsterSpeed);
+
+                if (camera.position.distanceTo(monster.position) < 1.3) {
+                    isGameActive = false;
+                    triggerJumpscare();
+                    setTimeout(() => {
+                        gameOverScreen.style.display = 'flex';
+                    }, 400);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
